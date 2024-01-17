@@ -415,18 +415,24 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mu Chat</title>
     <style>
       body {
 	padding: 20px;
 	font-family: arial;
 	font-size: 14px;
+	max-width: 1400px;
       }
       .ai, .you {
         margin-bottom: 10px;
        }
-       .text {
+       #prompt {
+         width: calc(100% - 60px);
+       }
+       #text {
          border: 1px solid #ccc;
 	 border-radius: 5px;
+	 padding: 10px;
        }
     </style>
   </head>
@@ -435,7 +441,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
     <form id="form" action="/prompt">
       <input id="uuid" name="uuid" type="hidden" value="` + id + `">
-      <input id="prompt" name="prompt" placeholder="ask a question">
+      <input id="prompt" name="prompt" placeholder="ask a question" autocomplete="off">
       <button>submit</button>
     </form>
 
