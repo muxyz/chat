@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"net/url"
+	//"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -105,7 +105,7 @@ func New(PSID, PSIDTS string) *Bard {
 
 // Ask asks a question to bard.google.com.
 func (b *Bard) Ask(prompt string) error {
-	prompt = url.QueryEscape(prompt)
+	//prompt = url.QueryEscape(prompt)
 
 	b.createRestClient()
 
@@ -418,34 +418,54 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
     <title>Mu Chat</title>
     <style>
       body {
+	margin: 0 auto;
 	padding: 20px;
 	font-family: arial;
 	font-size: 14px;
-	max-width: 1400px;
+	max-width: 800px;
       }
-      .ai, .you {
-        margin-bottom: 10px;
+      #input {
+	width: 100%;
+	height: 55px;
+	position: relative;
+      }
+      .mu, .you {
+        margin-top: 10px;
        }
        #prompt {
-         width: calc(100% - 60px);
+         width: calc(100% - 70px);
+	 padding: 10px;
+       }
+       #form {
+         position: absolute;
+	 bottom: 10px;
+	 width: 100%;
+	 margin: 0;
+       }
+       #form button {
+         padding: 10px;
        }
        #text {
          border: 1px solid #ccc;
 	 border-radius: 5px;
-	 padding: 10px;
+	 padding: 10px 20px;
+	 height: calc(100% - 130px);
+	 overflow-y: scroll;
        }
     </style>
   </head>
   <body>
     <h1>Chat</h1>
 
-    <form id="form" action="/prompt">
-      <input id="uuid" name="uuid" type="hidden" value="` + id + `">
-      <input id="prompt" name="prompt" placeholder="ask a question" autocomplete="off">
-      <button>submit</button>
-    </form>
+    <div id=text><h3>Hello, what can I help you with?</h3></div>
 
-    <div id=text></div>
+    <div id="input">
+      <form id="form" action="/prompt">
+        <input id="uuid" name="uuid" type="hidden" value="` + id + `">
+        <input id="prompt" name="prompt" placeholder="ask a question" autocomplete="off">
+        <button>submit</button>
+      </form>
+    </div>
 
     <script>
       var form = document.getElementById("form");
@@ -455,7 +475,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
         var data = document.getElementById("form");
 	var uuid = form.elements["uuid"].value;
         var prompt = form.elements["prompt"].value;
-	text.innerHTML += "<div class=you><small>you</small><br>" + prompt + "</div>";
+	form.elements["prompt"].value = '';
+	text.scrollTo(0, text.scrollHeight);
+	text.innerHTML += "<div class=you><small><b>you</b></small><br>" + prompt + "</div>";
 	var data = {"uuid": uuid, "prompt": prompt};
 
 	fetch("/prompt", {
@@ -465,7 +487,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	  .then(res => res.json())
 	  .then((rsp) => {
-		  text.innerHTML += "<div class=ai><small>ai</small><br>" + rsp.answer + "</div>";
+		  var answer = rsp.answer.replaceAll("\n", "<br>");
+		  answer = answer.replaceAll(/\*\*([A-Za-z0-9]+(\s[A-Za-z0-9]+)*:)\*\*/g, "<b>$1</b>");
+		  text.innerHTML += "<div class=mu><small><b>mu</b></small><br>" + answer + "</div>";
 	});
 	return false;
       })
