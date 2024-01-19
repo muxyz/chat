@@ -221,7 +221,7 @@ var headers map[string]string = map[string]string{
 func (b *Bard) createRestClient() {
 	b.client = resty.New()
 	b.client.SetLogger(Logger{})
-	b.client.SetDebug(false)
+	b.client.SetDebug(true)
 	b.client.SetHeaders(headers)
 	cookies := []*http.Cookie{
 		{Name: "__Secure-1PSID", Value: b.PSID},
@@ -446,17 +446,12 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
          padding: 10px;
        }
        #text {
-         border: 1px solid #ccc;
-	 border-radius: 5px;
-	 padding: 10px 20px;
 	 height: calc(100% - 130px);
 	 overflow-y: scroll;
        }
     </style>
   </head>
   <body>
-    <h1>Chat</h1>
-
     <div id=text><h3>Hello, what can I help you with?</h3></div>
 
     <div id="input">
@@ -476,8 +471,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	var uuid = form.elements["uuid"].value;
         var prompt = form.elements["prompt"].value;
 	form.elements["prompt"].value = '';
-	text.scrollTo(0, text.scrollHeight);
 	text.innerHTML += "<div class=you><small><b>you</b></small><br>" + prompt + "</div>";
+	text.scrollTo(0, text.scrollHeight);
 	var data = {"uuid": uuid, "prompt": prompt};
 
 	fetch("/prompt", {
@@ -489,7 +484,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	  .then((rsp) => {
 		  var answer = rsp.answer.replaceAll("\n", "<br>");
 		  answer = answer.replaceAll(/\*\*([A-Za-z0-9]+(\s[A-Za-z0-9]+)*:)\*\*/g, "<b>$1</b>");
+		  var height = text.scrollHeight;
 		  text.innerHTML += "<div class=mu><small><b>mu</b></small><br>" + answer + "</div>";
+		  text.scrollTo(0, height + 20);
 	});
 	return false;
       })
