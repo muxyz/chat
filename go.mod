@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/go-resty/resty/v2 v2.11.0
+	github.com/gomarkdown/markdown v0.0.0-20231222211730-1d6d20845b47
 	github.com/google/uuid v1.5.0
 	github.com/tidwall/gjson v1.17.0
 )

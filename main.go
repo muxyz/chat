@@ -17,6 +17,10 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
 	"github.com/tidwall/gjson"
+
+	"github.com/gomarkdown/markdown"
+	"github.com/gomarkdown/markdown/html"
+	"github.com/gomarkdown/markdown/parser"
 )
 
 const (
@@ -402,6 +406,20 @@ func (l Logger) Fatalf(msg string, args ...interface{}) {
 var mutex sync.RWMutex
 var bards = map[string]*Bard{}
 
+func mdToHTML(md []byte) []byte {
+	// create markdown parser with extensions
+	extensions := parser.CommonExtensions | parser.AutoHeadingIDs | parser.NoEmptyLineBeforeBlock
+	p := parser.NewWithExtensions(extensions)
+	doc := p.Parse(md)
+
+	// create HTML renderer with extensions
+	htmlFlags := html.CommonFlags | html.HrefTargetBlank
+	opts := html.RendererOptions{Flags: htmlFlags}
+	renderer := html.NewRenderer(opts)
+
+	return markdown.Render(doc, renderer)
+}
+
 func indexHandler(w http.ResponseWriter, r *http.Request) {
 	// each user gets a new bard instance
 	id := uuid.New().String()
@@ -473,7 +491,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	form.elements["prompt"].value = '';
 	text.innerHTML += "<div class=you><small><b>you</b></small><br>" + prompt + "</div>";
 	text.scrollTo(0, text.scrollHeight);
-	var data = {"uuid": uuid, "prompt": prompt};
+	var data = {"uuid": uuid, "prompt": prompt, "markdown": true};
 
 	fetch("/prompt", {
 		method: "POST",
@@ -482,8 +500,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	  .then(res => res.json())
 	  .then((rsp) => {
-		  var answer = rsp.answer.replaceAll("\n", "<br>");
-		  answer = answer.replaceAll(/\*\*([A-Za-z0-9]+(\s[A-Za-z0-9]+)*:)\*\*/g, "<b>$1</b>");
+		  //var answer = rsp.answer.replaceAll("\n", "<br>");
+		  //answer = answer.replaceAll(/\*\*([A-Za-z0-9]+(\s[A-Za-z0-9]+)*:)\*\*/g, "<b>$1</b>");
+		  var answer = rsp.markdown;
 		  var height = text.scrollHeight;
 		  text.innerHTML += "<div class=mu><small><b>mu</b></small><br>" + answer + "</div>";
 		  text.scrollTo(0, height + 20);
@@ -497,8 +516,9 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 type Req struct {
-	UUID   string `json:"uuid"`
-	Prompt string `json:"prompt"`
+	UUID     string `json:"uuid"`
+	Prompt   string `json:"prompt"`
+	Markdown bool   `json:"markdown",omitempty`
 }
 
 func promptHandler(w http.ResponseWriter, r *http.Request) {
@@ -535,9 +555,17 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	answer := bard.GetAnswer()
+	markdown := ""
+
+	if req.Markdown {
+		markdown = string(mdToHTML([]byte(answer)))
+	}
+
 	// get the answer
 	rsp := map[string]interface{}{
-		"answer": bard.GetAnswer(),
+		"answer":   answer,
+		"markdown": markdown,
 	}
 	b, _ = json.Marshal(rsp)
 	w.Header().Set("Content-Type", "application/json")
