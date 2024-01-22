@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
+	mrand "math/rand"
 	"net/http"
 	//"net/url"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/hex"
+	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -39,6 +45,10 @@ const bardURL string = "https://bard.google.com/_/BardChatUi/data/assistant.lamd
 var (
 	PSID   = os.Getenv("PSID")
 	PSIDTS = os.Getenv("PSIDTS")
+	// encryption key
+	Secret string
+	// cache path
+	Cache string
 )
 
 type Answer struct {
@@ -225,7 +235,7 @@ var headers map[string]string = map[string]string{
 func (b *Bard) createRestClient() {
 	b.client = resty.New()
 	b.client.SetLogger(Logger{})
-	b.client.SetDebug(true)
+	b.client.SetDebug(false)
 	b.client.SetHeaders(headers)
 	cookies := []*http.Cookie{
 		{Name: "__Secure-1PSID", Value: b.PSID},
@@ -314,7 +324,7 @@ func (b *Bard) createFormData(snim0e string, request []byte) map[string]string {
 func (b *Bard) createBatchExecuteReqParams() map[string]string {
 	return map[string]string{
 		"bl":     "boq_assistant-bard-web-server_20230718.13_p2", // name and version of the backend software handling the requests
-		"_reqid": fmt.Sprintf("%d", rand.Intn(999999)+100000),    // request id (random 4 digits + 100000)
+		"_reqid": fmt.Sprintf("%d", mrand.Intn(999999)+100000),   // request id (random 4 digits + 100000)
 		"rt":     "c",                                            // response type (c = standard, b = protobuf, none = easier json)
 	}
 }
@@ -480,6 +490,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
       </form>
     </div>
 
+    <div id="share">
+      <form id="share-form" action="/share">
+        <input id="uuid" name="uuid" type="hidden" value="` + id + `">
+        <button><small>share</small></button>
+      </form>
+      <span id="link"></span>
+    </div>
+
     <script>
       var form = document.getElementById("form");
       var text = document.getElementById("text");
@@ -508,12 +526,81 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		  text.scrollTo(0, height + 20);
 	});
 	return false;
+      });
+
+      // share form
+      var sform = document.getElementById("share-form");
+
+      sform.addEventListener("submit", function(ev) {
+	ev.preventDefault();
+        var link = document.getElementById("link");
+	var text = document.getElementById("text")
+	var uuid = sform.elements["uuid"].value;
+	var data = {"uuid": uuid, "text": text.innerHTML};
+
+	fetch("/share", {
+		method: "POST",
+		body: JSON.stringify(data),
+		headers: {'Content-Type': 'application/json'},
+	})
+	  .then(res => res.json())
+	  .then((rsp) => {
+		  link.innerHTML = "<a href=/share?id=" + rsp.id + ">link</a>";
+	});
+
+	return false;
       })
     </script>
   </body>
 </html>
 	`))
 }
+
+var Template = `
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mu Chat</title>
+    <style>
+      body {
+	margin: 0 auto;
+	padding: 20px;
+	font-family: arial;
+	font-size: 14px;
+	max-width: 800px;
+      }
+      #input {
+	width: 100%%;
+	height: 55px;
+	position: relative;
+      }
+      .mu, .you {
+        margin-top: 10px;
+       }
+       #prompt {
+         width: calc(100%% - 70px);
+	 padding: 10px;
+       }
+       #form {
+         position: absolute;
+	 bottom: 10px;
+	 width: 100%%;
+	 margin: 0;
+       }
+       #form button {
+         padding: 10px;
+       }
+       #text {
+	 height: calc(100%% - 130px);
+	 overflow-y: scroll;
+       }
+    </style>
+  </head>
+  <body>
+    <div id=text>%s</div>
+  </body>
+</html>
+`
 
 type Req struct {
 	UUID     string `json:"uuid"`
@@ -530,7 +617,7 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 	prompt := req.Prompt
 
 	if len(req.UUID) == 0 {
-		fmt.Println("id", id)
+		fmt.Println("uuid", id)
 		return
 	}
 	if len(req.Prompt) == 0 {
@@ -572,6 +659,199 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
+func encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
+	//Since the key is in string, we need to convert decode it to bytes
+	key, _ := hex.DecodeString(keyString)
+	plaintext := []byte(stringToEncrypt)
+
+	//Create a new Cipher Block from the key
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	//Create a new GCM - https://en.wikipedia.org/wiki/Galois/Counter_Mode
+	//https://golang.org/pkg/crypto/cipher/#NewGCM
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	//Create a nonce. Nonce should be from GCM
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		panic(err.Error())
+	}
+
+	//Encrypt the data using aesGCM.Seal
+	//Since we don't want to save the nonce somewhere else in this case, we add it as a prefix to the encrypted data. The first nonce argument in Seal is the prefix.
+	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
+	return fmt.Sprintf("%x", ciphertext)
+}
+
+func decrypt(encryptedString string, keyString string) (decryptedString string) {
+	key, _ := hex.DecodeString(keyString)
+	enc, _ := hex.DecodeString(encryptedString)
+
+	//Create a new Cipher Block from the key
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	//Create a new GCM
+	aesGCM, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	//Get the nonce size
+	nonceSize := aesGCM.NonceSize()
+
+	//Extract the nonce from the encrypted data
+	nonce, ciphertext := enc[:nonceSize], enc[nonceSize:]
+
+	//Decrypt the data
+	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return fmt.Sprintf("%s", plaintext)
+}
+
+var (
+	alphanum = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+)
+
+// random generate i length alphanum string
+func random(i int) string {
+	bytes := make([]byte, i)
+	for {
+		rand.Read(bytes)
+		for i, b := range bytes {
+			bytes[i] = alphanum[b%byte(len(alphanum))]
+		}
+		return string(bytes)
+	}
+	return uuid.New().String()
+}
+
+type Share struct {
+	UUID string `json:"uuid"`
+	Text string `json:"text"`
+}
+
+func shareHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		r.ParseForm()
+
+		id := r.Form.Get("id")
+		if len(id) == 0 {
+			fmt.Println("missing id")
+			return
+		}
+		// must comply with our id format
+		if !regexp.MustCompilePOSIX("^[a-zA-Z0-9]+$").MatchString(id) {
+			fmt.Println("did not match regexp")
+			return
+		}
+		path := filepath.Join(Cache, fmt.Sprintf("chat.%s.enc", id))
+		// load it
+
+		b, _ := os.ReadFile(path)
+		if len(b) == 0 {
+			fmt.Println("missing data")
+			return
+		}
+		data := decrypt(string(b), Secret)
+		html := fmt.Sprintf(Template, data)
+		// todo: styling
+		w.Write([]byte(html))
+	}
+
+	// rest of this function is for sharing
+	if r.Method != "POST" {
+		return
+	}
+
+	b, _ := ioutil.ReadAll(r.Body)
+	var req Share
+	json.Unmarshal(b, &req)
+
+	if len(req.UUID) == 0 {
+		fmt.Println("uuid", req.UUID)
+		return
+	}
+	if len(req.Text) == 0 {
+		fmt.Println("no text")
+		return
+	}
+
+	// generate a short id
+	id := random(8)
+
+	// get the text
+	text := req.Text
+
+	// write a file
+	data := encrypt(text, Secret)
+
+	path := filepath.Join(Cache, fmt.Sprintf("chat.%s.enc", id))
+	os.WriteFile(path, []byte(data), 0600)
+
+	rsp := map[string]interface{}{
+		"id": id,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	// write the response
+	b, _ = json.Marshal(rsp)
+	w.Write(b)
+}
+
+func init() {
+	// check the key exists
+	user, err := os.UserHomeDir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	home := filepath.Join(user, "mu")
+	if err := os.MkdirAll(home, 0700); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	Cache = filepath.Join(home, "cache")
+
+	path := filepath.Join(home, "key")
+	b, _ := os.ReadFile(path)
+
+	if len(b) == 0 {
+		// generate a new key
+		bytes := make([]byte, 32) //generate a random 32 byte key for AES-256
+		if _, err := rand.Read(bytes); err != nil {
+			panic(err.Error())
+		}
+
+		key := hex.EncodeToString(bytes) //encode key in bytes to string and keep as secret, put in a vault
+		fmt.Println("generated new key")
+
+		// write the file
+		if err := os.WriteFile(path, []byte(key), 0600); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+
+		Secret = key
+	} else {
+		fmt.Println("loading key")
+		Secret = string(b)
+	}
+}
+
 func main() {
 	if len(PSID) == 0 || len(PSIDTS) == 0 {
 		fmt.Println("Missing PSID")
@@ -580,5 +860,6 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/prompt", promptHandler)
+	http.HandleFunc("/share", shareHandler)
 	http.ListenAndServe(":8081", nil)
 }
