@@ -54,3 +54,7 @@ golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 mu.dev v0.0.0-20240123090120-ea7b03336937 h1:e2xpYmTyyRz31XFeGwsLZUo+hREBuzRxboN5Adj05NU=
 mu.dev v0.0.0-20240123090120-ea7b03336937/go.mod h1:7+/Ve16/QLAaY0c8pK9tBkxdzIDybFe0kz4T/WQ0Yng=
+mu.dev v0.0.0-20240123202459-9415e3e5e2a1 h1:oTRpUZhPEuLTAz0lLCVT05WZs0B9mgjmfvMEUxTjXp8=
+mu.dev v0.0.0-20240123202459-9415e3e5e2a1/go.mod h1:7+/Ve16/QLAaY0c8pK9tBkxdzIDybFe0kz4T/WQ0Yng=
+mu.dev v0.0.0-20240123203237-1bfe797e895b h1:uuHvpz3BVBQ7IQb/aalUzuQ5uoObcXyjXCqWTS3zY2c=
+mu.dev v0.0.0-20240123203237-1bfe797e895b/go.mod h1:7+/Ve16/QLAaY0c8pK9tBkxdzIDybFe0kz4T/WQ0Yng=

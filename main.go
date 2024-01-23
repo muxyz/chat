@@ -10,7 +10,6 @@ import (
 	"net/http"
 	//"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -689,16 +688,18 @@ func shareHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("did not match regexp")
 			return
 		}
-		path := filepath.Join(mu.Cache, fmt.Sprintf("chat.%s.enc", id))
-		// load it
 
-		b, _ := os.ReadFile(path)
-		if len(b) == 0 {
-			fmt.Println("missing data")
+		file := fmt.Sprintf("chat.%s.enc", id)
+		var data string
+
+		// load from the cache
+		if err := mu.Load(&data, file); err != nil {
+			fmt.Println("Failed to load chat", err)
 			return
 		}
-		data := mu.Decrypt(string(b))
+
 		html := fmt.Sprintf(Template, data)
+
 		// todo: styling
 		w.Write([]byte(html))
 	}
@@ -727,11 +728,13 @@ func shareHandler(w http.ResponseWriter, r *http.Request) {
 	// get the text
 	text := req.Text
 
-	// write a file
-	data := mu.Encrypt(text)
+	// write to cache
+	file := fmt.Sprintf("chat.%s.enc", id)
 
-	path := filepath.Join(mu.Cache, fmt.Sprintf("chat.%s.enc", id))
-	os.WriteFile(path, []byte(data), 0600)
+	if err := mu.Save(text, file); err != nil {
+		fmt.Println("failed to save", err)
+		return
+	}
 
 	rsp := map[string]interface{}{
 		"id": id,
