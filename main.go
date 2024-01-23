@@ -541,7 +541,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	  .then(res => res.json())
 	  .then((rsp) => {
-		  link.innerHTML = "<a href=/share?id=" + rsp.id + ">link</a>";
+		  link.innerHTML = "<a href=/share?id=" + rsp.id + " target='_blank'>link</a>";
 	});
 
 	return false;
