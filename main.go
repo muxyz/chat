@@ -2,23 +2,21 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	mrand "math/rand"
 	"net/http"
 	//"net/url"
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/hex"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
+
+	"mu.dev"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/google/uuid"
