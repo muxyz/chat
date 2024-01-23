@@ -45,10 +45,6 @@ const bardURL string = "https://bard.google.com/_/BardChatUi/data/assistant.lamd
 var (
 	PSID   = os.Getenv("PSID")
 	PSIDTS = os.Getenv("PSIDTS")
-	// encryption key
-	Secret string
-	// cache path
-	Cache string
 )
 
 type Answer struct {
@@ -659,67 +655,6 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 
-func encrypt(stringToEncrypt string, keyString string) (encryptedString string) {
-	//Since the key is in string, we need to convert decode it to bytes
-	key, _ := hex.DecodeString(keyString)
-	plaintext := []byte(stringToEncrypt)
-
-	//Create a new Cipher Block from the key
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	//Create a new GCM - https://en.wikipedia.org/wiki/Galois/Counter_Mode
-	//https://golang.org/pkg/crypto/cipher/#NewGCM
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	//Create a nonce. Nonce should be from GCM
-	nonce := make([]byte, aesGCM.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		panic(err.Error())
-	}
-
-	//Encrypt the data using aesGCM.Seal
-	//Since we don't want to save the nonce somewhere else in this case, we add it as a prefix to the encrypted data. The first nonce argument in Seal is the prefix.
-	ciphertext := aesGCM.Seal(nonce, nonce, plaintext, nil)
-	return fmt.Sprintf("%x", ciphertext)
-}
-
-func decrypt(encryptedString string, keyString string) (decryptedString string) {
-	key, _ := hex.DecodeString(keyString)
-	enc, _ := hex.DecodeString(encryptedString)
-
-	//Create a new Cipher Block from the key
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	//Create a new GCM
-	aesGCM, err := cipher.NewGCM(block)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	//Get the nonce size
-	nonceSize := aesGCM.NonceSize()
-
-	//Extract the nonce from the encrypted data
-	nonce, ciphertext := enc[:nonceSize], enc[nonceSize:]
-
-	//Decrypt the data
-	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		panic(err.Error())
-	}
-
-	return fmt.Sprintf("%s", plaintext)
-}
-
 var (
 	alphanum = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 )
@@ -756,7 +691,7 @@ func shareHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("did not match regexp")
 			return
 		}
-		path := filepath.Join(Cache, fmt.Sprintf("chat.%s.enc", id))
+		path := filepath.Join(mu.Cache, fmt.Sprintf("chat.%s.enc", id))
 		// load it
 
 		b, _ := os.ReadFile(path)
@@ -764,7 +699,7 @@ func shareHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println("missing data")
 			return
 		}
-		data := decrypt(string(b), Secret)
+		data := mu.Decrypt(string(b))
 		html := fmt.Sprintf(Template, data)
 		// todo: styling
 		w.Write([]byte(html))
@@ -795,9 +730,9 @@ func shareHandler(w http.ResponseWriter, r *http.Request) {
 	text := req.Text
 
 	// write a file
-	data := encrypt(text, Secret)
+	data := mu.Encrypt(text)
 
-	path := filepath.Join(Cache, fmt.Sprintf("chat.%s.enc", id))
+	path := filepath.Join(mu.Cache, fmt.Sprintf("chat.%s.enc", id))
 	os.WriteFile(path, []byte(data), 0600)
 
 	rsp := map[string]interface{}{
@@ -808,48 +743,6 @@ func shareHandler(w http.ResponseWriter, r *http.Request) {
 	// write the response
 	b, _ = json.Marshal(rsp)
 	w.Write(b)
-}
-
-func init() {
-	// check the key exists
-	user, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	home := filepath.Join(user, "mu")
-	if err := os.MkdirAll(home, 0700); err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	Cache = filepath.Join(home, "cache")
-
-	path := filepath.Join(home, "key")
-	b, _ := os.ReadFile(path)
-
-	if len(b) == 0 {
-		// generate a new key
-		bytes := make([]byte, 32) //generate a random 32 byte key for AES-256
-		if _, err := rand.Read(bytes); err != nil {
-			panic(err.Error())
-		}
-
-		key := hex.EncodeToString(bytes) //encode key in bytes to string and keep as secret, put in a vault
-		fmt.Println("generated new key")
-
-		// write the file
-		if err := os.WriteFile(path, []byte(key), 0600); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		Secret = key
-	} else {
-		fmt.Println("loading key")
-		Secret = string(b)
-	}
 }
 
 func main() {
