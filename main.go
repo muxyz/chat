@@ -635,8 +635,17 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	promptTemplate := `
+Be concise in your response and try to answer quickly. Operating as a command line.
+
+The question:
+
+%s
+`
+	q := fmt.Sprintf(promptTemplate, prompt)
+
 	// ask the question
-	if err := bard.Ask(prompt); err != nil {
+	if err := bard.Ask(q); err != nil {
 		w.Write([]byte(`can't answer that question`))
 		fmt.Println(prompt, "response error:", err)
 		return
