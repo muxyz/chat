@@ -39,6 +39,12 @@ const (
 
 const bardURL string = "https://bard.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
 
+var templates = map[string]string{
+	"general": "%s",
+	"islam":   "Respond only from qualified Islamic sources like the Quran and Sunnah of the prophet Muhammad and related publications.\n\n%s",
+	"news":    "Respond based on current factual news occuring in real time around the world.\n\n%s",
+}
+
 var (
 	PSID   = os.Getenv("PSID")
 	PSIDTS = os.Getenv("PSIDTS")
@@ -470,15 +476,32 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	 height: calc(100% - 130px);
 	 overflow-y: scroll;
        }
+       #topics > a {
+         border: 1px solid black;
+	 border-radius: 5px;
+	 padding: 3px;
+	 color: black;
+	 text-decoration: none;
+       }
+       .highlight {
+         background: grey;
+       }
     </style>
   </head>
   <body>
+    <div id="topics">
+      <a href="#general">General</a>
+      <a href="#islam">Islam</a>
+      <a href="#news">News</a>
+    </div>
+
     <div id=text><h3>Hello, what can I help you with?</h3></div>
 
     <div id="input">
       <form id="form" action="/prompt">
         <input id="uuid" name="uuid" type="hidden" value="` + id + `">
         <input id="prompt" name="prompt" placeholder="ask a question" autocomplete="off">
+	<input id="category" name="category" type="hidden">
         <button>submit</button>
       </form>
     </div>
@@ -543,6 +566,20 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	return false;
       })
+
+      window.addEventListener("hashchange", () => {
+        var hash = window.location.hash.replace("#", "");
+	var category = document.getElementById("category")
+	category.value = hash;
+
+	var el = document.querySelectorAll('#topics a');
+	for (let i = 0; i < el.length; i++) {
+          el[i].className = '';
+	  if (el[i].href.endsWith('#' + hash)) {
+            el[i].className = 'highlight';
+	  }
+	}
+      }, false);
     </script>
   </body>
 </html>
@@ -599,6 +636,7 @@ type Req struct {
 	UUID     string `json:"uuid"`
 	Prompt   string `json:"prompt"`
 	Markdown bool   `json:"markdown",omitempty`
+	Category string `json:"category",omitempty`
 }
 
 func promptHandler(w http.ResponseWriter, r *http.Request) {
@@ -628,8 +666,18 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// set question
+	q := prompt
+
+	if len(req.Category) > 0 {
+		t, ok := templates[req.Category]
+		if ok {
+			q = fmt.Sprintf(t, prompt)
+		}
+	}
+
 	// ask the question
-	if err := bard.Ask(prompt); err != nil {
+	if err := bard.Ask(q); err != nil {
 		w.Write([]byte(`can't answer that question`))
 		fmt.Println(prompt, "response error:", err)
 		return
