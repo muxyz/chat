@@ -37,7 +37,7 @@ const (
 	timeoutQuery  = 15 // timeout for the query request (in seconds)
 )
 
-const bardURL string = "https://bard.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
+const bardURL string = "https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate"
 
 var templates = map[string]string{
 	"general": "%s",
@@ -89,7 +89,7 @@ func (a *Answer) getChoiceID() string {
 	return a.choiceID
 }
 
-// Bard is the main struct for the bard.google.com API.
+// Bard is the main struct for the gemini.google.com API.
 type Bard struct {
 	PSID       string
 	PSIDTS     string
@@ -116,7 +116,7 @@ func New(PSID, PSIDTS string) *Bard {
 	return b
 }
 
-// Ask asks a question to bard.google.com.
+// Ask asks a question to gemini.google.com.
 func (b *Bard) Ask(prompt string) error {
 	//prompt = url.QueryEscape(prompt)
 
@@ -222,12 +222,12 @@ func (b *Bard) getAllAnswers() []*Answer {
 //
 
 var headers map[string]string = map[string]string{
-	"Host":          "bard.google.com",
+	"Host":          "gemini.google.com",
 	"X-Same-Domain": "1",
 	"User-Agent":    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36 Edg/114.0.1823.82",
 	"Content-Type":  "application/x-www-form-urlencoded;charset=UTF-8",
-	"Origin":        "https://bard.google.com",
-	"Referer":       "https://bard.google.com/",
+	"Origin":        "https://gemini.google.com",
+	"Referer":       "https://gemini.google.com/",
 }
 
 // createRestClient creates a resty client with the needed configuration.
@@ -245,11 +245,11 @@ func (b *Bard) createRestClient() {
 
 var snim0eRegex = regexp.MustCompile(`SNlM0e\":\"(.*?)\"`)
 
-// getSnim0eValue gets the snim0e value from bard.google.com.
+// getSnim0eValue gets the snim0e value from gemini.google.com.
 func (b *Bard) getSnim0eValue() (string, error) {
 	// snim0e: AJWyuYX8NLX7SKFihs03g0AoLU-o:1689960334051 (e.g)
 
-	b.client.SetBaseURL("https://bard.google.com")
+	b.client.SetBaseURL("https://gemini.google.com")
 	b.client.SetTimeout(timeoutSnim0e * time.Second)
 
 	resp, err := b.client.R().Get("/")

@@ -11,7 +11,7 @@ Build
 go build .
 ```
 
-Export PSID and PSIDTS from Bard
+Export PSID and PSIDTS from [Gemini](https://gemini.google.com)
 
 ```
 export PSID=xxx
