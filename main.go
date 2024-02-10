@@ -438,19 +438,11 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	bards[id] = bard
 	mutex.Unlock()
 
-	w.Write([]byte(`
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mu Chat</title>
+	t := mu.Template("Chat", "Chat with AI", `
+      <a href="#general" class="head">General</a>
+      <a href="#islam" class="head">Islam</a>
+      <a href="#news" class="head">News</a>`, `
     <style>
-      body {
-	margin: 0 auto;
-	padding: 20px;
-	font-family: arial;
-	font-size: 14px;
-	max-width: 800px;
-      }
       #input {
 	width: 100%;
 	height: 55px;
@@ -460,7 +452,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
         margin-top: 10px;
        }
        #prompt {
-         width: calc(100% - 70px);
+         width: calc(100% - 100px);
 	 padding: 10px;
        }
        #form {
@@ -473,29 +465,19 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
          padding: 10px;
        }
        #text {
-	 height: calc(100% - 130px);
+	 height: calc(100% - 170px);
 	 overflow-y: scroll;
-       }
-       #topics > a {
-         border: 1px solid black;
-	 border-radius: 5px;
-	 padding: 3px;
-	 color: black;
-	 text-decoration: none;
+	 margin-top: 25px;
        }
        .highlight {
-         background: grey;
+         text-decoration: underline;
+       }
+       @media only screen and (max-width: 600px) {
+         #text { padding: 20px; }
        }
     </style>
-  </head>
-  <body>
-    <div id="topics">
-      <a href="#general">General</a>
-      <a href="#islam">Islam</a>
-      <a href="#news">News</a>
-    </div>
 
-    <div id=text><h3>Hello, what can I help you with?</h3></div>
+    <div id=text><h3>Hi, what can I help you with?</h3></div>
 
     <div id="input">
       <form id="form" action="/prompt">
@@ -523,7 +505,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	var uuid = form.elements["uuid"].value;
         var prompt = form.elements["prompt"].value;
 	form.elements["prompt"].value = '';
-	text.innerHTML += "<div class=you><small><b>you</b></small><br>" + prompt + "</div>";
+	text.innerHTML += "<div class=you><b>you</b><br><br>" + prompt + "</div>";
 	text.scrollTo(0, text.scrollHeight);
 	var data = {"uuid": uuid, "prompt": prompt, "markdown": true};
 
@@ -538,7 +520,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		  //answer = answer.replaceAll(/\*\*([A-Za-z0-9]+(\s[A-Za-z0-9]+)*:)\*\*/g, "<b>$1</b>");
 		  var answer = rsp.markdown;
 		  var height = text.scrollHeight;
-		  text.innerHTML += "<div class=mu><small><b>mu</b></small><br>" + answer + "</div>";
+		  text.innerHTML += "<div class=mu><b>mu</b><br>" + answer + "</div>";
 		  text.scrollTo(0, height + 20);
 	});
 	return false;
@@ -572,18 +554,17 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	var category = document.getElementById("category")
 	category.value = hash;
 
-	var el = document.querySelectorAll('#topics a');
+	var el = document.querySelectorAll('#nav a');
 	for (let i = 0; i < el.length; i++) {
-          el[i].className = '';
+          el[i].className = 'head';
 	  if (el[i].href.endsWith('#' + hash)) {
-            el[i].className = 'highlight';
+            el[i].className = 'highlight head';
 	  }
 	}
       }, false);
     </script>
-  </body>
-</html>
-	`))
+	`)
+	w.Write([]byte(t))
 }
 
 var Template = `
