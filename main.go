@@ -57,7 +57,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// get cookie
 	c, err := r.Cookie("uuid")
-	if err == nil {
+	if err == nil && len(c.Value) > 0 {
 		id = c.Value
 	} else {
 		http.SetCookie(w, &http.Cookie{
@@ -67,7 +67,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	c, err = r.Cookie("channel")
-	if err == nil {
+	if err == nil && len(c.Value) > 0 {
 		channel = c.Value
 	} else {
 		http.SetCookie(w, &http.Cookie{
