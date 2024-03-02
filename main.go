@@ -196,19 +196,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	window.location.reload();
       }, false);
-
-      function refresh() {
-	window.location.reload();
-      };
-
-      var refreshTimeout;
-
-      document.getElementById("prompt").onkeypress = function() {
-        if (refreshTimeout != undefined) clearTimeout(refreshTimeout);
-        refreshTimeout = setTimeout(refresh, 5000);
-      };
-
-      refreshTimeout = setTimeout(refresh, 5000);
     </script>
 	`)
 	w.Write([]byte(t))
