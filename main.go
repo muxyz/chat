@@ -27,6 +27,7 @@ var channels = map[string]*Channel{
 	"general": new(Channel),
 	"islam":   new(Channel),
 	"news":    new(Channel),
+	"test":    new(Channel),
 }
 
 type Command func(string) string
@@ -140,8 +141,31 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
     </div>
 
     <script>
+	String.prototype.parseURL = function(embed) {
+	    return this.replace(/[A-Za-z]+:\/\/[A-Za-z0-9-_]+\.[A-Za-z0-9-_:%&~\?\/.=]+/g, function(url) {
+		if (embed == true) {
+		    var match = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+		    if (match && match[2].length == 11) {
+			return '<div class="iframe">' +
+			    '<iframe src="//www.youtube.com/embed/' + match[2] +
+			    '" frameborder="0" allowfullscreen></iframe>' + '</div>';
+		    };
+		    if (url.match(/^.*giphy.com\/media\/[a-zA-Z0-9]+\/[a-zA-Z0-9]+.gif$/)) {
+			return '<div class="animation"><img src="' + url + '"></div>';
+		    }
+		};
+		// var pretty = url.replace(/^http(s)?:\/\/(www\.)?/, '');
+		//return pretty.link(url);
+		return url.link(url)
+	    });
+	};
+
       var form = document.getElementById("form");
       var text = document.getElementById("text");
+
+      // parse and embed
+      text.innerHTML = text.innerHTML.parseURL();
+
       form.addEventListener("submit", function(ev) {
 	ev.preventDefault();
         var data = document.getElementById("form");
@@ -149,7 +173,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
         var prompt = form.elements["prompt"].value;
 	var channel = form.elements["channel"].value;
 	form.elements["prompt"].value = '';
-	text.innerHTML += "<div class=message>" + prompt + "</div>";
+	text.innerHTML += "<div class=message>" + prompt.parseURL() + "</div>";
 	text.scrollTo(0, text.scrollHeight);
 	var data = {"uuid": uuid, "prompt": prompt, "markdown": true, channel: channel};
 
