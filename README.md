@@ -1,6 +1,6 @@
 # chat
 
-Chat by yourself
+Chat with AI
 
 [chat.mu.xyz](https://chat.mu.xyz)
 
