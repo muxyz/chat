@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	//"net/url"
 	"sync"
 
@@ -15,6 +17,8 @@ import (
 	"github.com/gomarkdown/markdown"
 	"github.com/gomarkdown/markdown/html"
 	"github.com/gomarkdown/markdown/parser"
+
+	"github.com/sashabaranov/go-openai"
 )
 
 type Channel struct {
@@ -32,7 +36,41 @@ var channels = map[string]*Channel{
 
 type Command func(string) string
 
-var commands = map[string]Command{}
+var commands = map[string]Command{
+	"openai": func(prompt string) string {
+		key := os.Getenv("OPENAI_API_KEY")
+		if len(key) == 0 {
+			return ""
+		}
+
+		client := openai.NewClient(key)
+
+		var message []openai.ChatCompletionMessage
+
+		message = append(message, openai.ChatCompletionMessage{
+			Role:    openai.ChatMessageRoleUser,
+			Content: prompt,
+		})
+
+		req := openai.ChatCompletionRequest{
+			Model:     openai.GPT3Dot5Turbo,
+			Messages:  message,
+			User:      "user",
+			MaxTokens: 4096,
+		}
+
+		resp, err := client.CreateChatCompletion(context.Background(), req)
+
+		var reply string
+		if err != nil {
+			reply = err.Error()
+		} else {
+			reply = resp.Choices[0].Message.Content
+		}
+
+		return reply
+	},
+}
 
 var updates = make(chan bool, 1)
 
@@ -123,6 +161,10 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
        .highlight {
          text-decoration: underline;
        }
+       .you, .mu {
+         font-weight: bold;
+	 font-size: small;
+       }
        @media only screen and (max-width: 600px) {
          #text { padding: 60px 20px 20px 20px; }
 	 .message { padding: 5px 0 0 0; }
@@ -175,7 +217,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	form.elements["prompt"].value = '';
 	text.innerHTML += "<div class=message>" + prompt.parseURL() + "</div>";
 	text.scrollTo(0, text.scrollHeight);
-	var data = {"uuid": uuid, "prompt": prompt, "markdown": true, channel: channel};
+	var data = {"uuid": uuid, "prompt": prompt, "markdown": false, channel: channel};
 
 	fetch("/prompt", {
 		method: "POST",
@@ -190,7 +232,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		  if (rsp.markdown === undefined) {
 			return
 		  }
-		  var answer = rsp.markdown;
+		  var answer = rsp.answer;
 		  var height = text.scrollHeight;
 		  text.innerHTML += "<div class=message>" + answer + "</div>";
 		  text.scrollTo(0, height + 20);
@@ -249,14 +291,16 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.Channel) > 0 {
-		mutex.Lock()
-		c, ok := channels[req.Channel]
-		if ok {
-			c.Messages = append(c.Messages, prompt)
-		}
-		mutex.Unlock()
+	if len(req.Channel) == 0 {
+		req.Channel = "general"
 	}
+
+	mutex.Lock()
+	c, ok := channels[req.Channel]
+	if ok {
+		c.Messages = append(c.Messages, prompt)
+	}
+	mutex.Unlock()
 
 	select {
 	case updates <- true:
@@ -264,7 +308,7 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ask the question
-	command, ok := commands[prompt]
+	command, ok := commands["openai"]
 	if ok {
 		answer := command(prompt)
 		markdown := ""
@@ -278,6 +322,19 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 			"answer":   answer,
 			"markdown": markdown,
 		}
+
+		mutex.Lock()
+		c, ok := channels[req.Channel]
+		if ok {
+			c.Messages = append(c.Messages, answer)
+		}
+		mutex.Unlock()
+
+		select {
+		case updates <- true:
+		default:
+		}
+
 		b, _ = json.Marshal(rsp)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(b)
