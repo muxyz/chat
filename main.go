@@ -34,10 +34,10 @@ var channels = map[string]*Channel{
 	"test":    new(Channel),
 }
 
-type Command func(string) string
+type Command func(*Channel, string) string
 
 var commands = map[string]Command{
-	"openai": func(prompt string) string {
+	"openai": func(channel *Channel, prompt string) string {
 		key := os.Getenv("OPENAI_API_KEY")
 		if len(key) == 0 {
 			return ""
@@ -47,6 +47,24 @@ var commands = map[string]Command{
 
 		var message []openai.ChatCompletionMessage
 
+		var tokens int
+
+		for i := len(channel.Messages); i > 0; i-- {
+			msg := channel.Messages[i-1]
+
+			// TODO: fix role
+			message = append([]openai.ChatCompletionMessage{{
+				Role:    openai.ChatMessageRoleUser,
+				Content: msg,
+			}}, message...)
+
+			tokens += len(msg)
+
+			if tokens > 4096 {
+				break
+			}
+		}
+
 		message = append(message, openai.ChatCompletionMessage{
 			Role:    openai.ChatMessageRoleUser,
 			Content: prompt,
@@ -55,7 +73,7 @@ var commands = map[string]Command{
 		req := openai.ChatCompletionRequest{
 			Model:     openai.GPT3Dot5Turbo,
 			Messages:  message,
-			User:      "user",
+			User:      channel.Name,
 			MaxTokens: 4096,
 		}
 
@@ -310,7 +328,7 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 	// ask the question
 	command, ok := commands["openai"]
 	if ok {
-		answer := command(prompt)
+		answer := command(c, prompt)
 		markdown := ""
 
 		if req.Markdown {
