@@ -29,6 +29,7 @@ type Channel struct {
 
 var channels = map[string]*Channel{
 	"general": new(Channel),
+	"crypto":  new(Channel),
 	"islam":   new(Channel),
 	"news":    new(Channel),
 	"test":    new(Channel),
@@ -149,6 +150,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	t := mu.Template("Chat", "Reflections of self", `
       <a href="#general" class="head">General</a>
+      <a href="#crypto" class="head">Crypto</a>
       <a href="#islam" class="head">Islam</a>
       <a href="#news" class="head">News</a>`, `
     <style>
@@ -169,7 +171,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
          padding: 10px;
        }
        .message {
-         padding: 5px 10px;
+         padding: 10px 10px;
+	 border-top: 1px solid #cccccc;
        }
        #text {
 	 height: calc(100% - 140px);
@@ -185,7 +188,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
        }
        @media only screen and (max-width: 600px) {
          #text { padding: 60px 20px 20px 20px; }
-	 .message { padding: 5px 0 0 0; }
+	 .message { padding: 10px 0; }
        }
     </style>
 
@@ -235,7 +238,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	form.elements["prompt"].value = '';
 	text.innerHTML += "<div class=message>" + prompt.parseURL() + "</div>";
 	text.scrollTo(0, text.scrollHeight);
-	var data = {"uuid": uuid, "prompt": prompt, "markdown": false, channel: channel};
+	var data = {"uuid": uuid, "prompt": prompt, "markdown": true, channel: channel};
 
 	fetch("/prompt", {
 		method: "POST",
@@ -250,7 +253,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		  if (rsp.markdown === undefined) {
 			return
 		  }
-		  var answer = rsp.answer;
+		  var answer = rsp.markdown;
 		  var height = text.scrollHeight;
 		  text.innerHTML += "<div class=message>" + answer + "</div>";
 		  text.scrollTo(0, height + 20);
@@ -330,9 +333,11 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		answer := command(c, prompt)
 		markdown := ""
+		message := answer
 
 		if req.Markdown {
 			markdown = string(mdToHTML([]byte(answer)))
+			message = markdown
 		}
 
 		// get the answer
@@ -344,7 +349,7 @@ func promptHandler(w http.ResponseWriter, r *http.Request) {
 		mutex.Lock()
 		c, ok := channels[req.Channel]
 		if ok {
-			c.Messages = append(c.Messages, answer)
+			c.Messages = append(c.Messages, message)
 		}
 		mutex.Unlock()
 
