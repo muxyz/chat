@@ -187,7 +187,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	 font-size: small;
        }
        @media only screen and (max-width: 600px) {
-         #text { padding: 60px 20px 20px 20px; }
+         #text { padding: 40px 0 20px 0; }
 	 .message { padding: 10px 0; }
        }
     </style>
@@ -295,6 +295,20 @@ type Req struct {
 	Channel  string `json:"channel",omitempty`
 }
 
+func channelHandler(w http.ResponseWriter, r *http.Request) {
+	mutex.Lock()
+	var chans []string
+
+	for ch, _ := range channels {
+		chans = append(chans, ch)
+	}
+	mutex.Unlock()
+
+	b, _ := json.Marshal(chans)
+
+	w.Write(b)
+}
+
 func promptHandler(w http.ResponseWriter, r *http.Request) {
 	b, _ := ioutil.ReadAll(r.Body)
 	var req Req
@@ -391,5 +405,6 @@ func main() {
 
 	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/prompt", promptHandler)
+	http.HandleFunc("/channels", channelHandler)
 	http.ListenAndServe(":8081", nil)
 }
