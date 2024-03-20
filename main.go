@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	//"net/url"
+	"sort"
 	"sync"
 
 	"mu.dev"
@@ -144,8 +145,15 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 
 	// get the channel
 	text := ""
-	for _, m := range ch.Messages {
-		text += fmt.Sprintf("<div class=message>%s</div>", m)
+	for i, m := range ch.Messages {
+		class := "message"
+
+		mod := i % 2
+		if mod != 0 {
+			class = "message mu"
+		}
+
+		text += fmt.Sprintf(`<div class="%s">%s</div>`, class, m)
 	}
 
 	t := mu.Template("Chat", "Reflections of self", `
@@ -182,9 +190,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
        .highlight {
          text-decoration: underline;
        }
-       .you, .mu {
-         font-weight: bold;
-	 font-size: small;
+       .mu {
+         background: #F8F8F8;
        }
        @media only screen and (max-width: 600px) {
          #text { padding: 40px 0 20px 0; }
@@ -297,16 +304,26 @@ type Req struct {
 
 func channelHandler(w http.ResponseWriter, r *http.Request) {
 	mutex.Lock()
+
+	html := "<h1>Channels</h1>"
+
 	var chans []string
 
 	for ch, _ := range channels {
 		chans = append(chans, ch)
 	}
+
+	sort.Strings(chans)
+
+	for _, ch := range chans {
+		if len(ch) == 0 {
+			continue
+		}
+		html += fmt.Sprintf(`<a href="/#%s">%s</a><br>`, ch, ch)
+	}
 	mutex.Unlock()
 
-	b, _ := json.Marshal(chans)
-
-	w.Write(b)
+	w.Write([]byte(mu.Template("Channels", "List of channels", "", html)))
 }
 
 func promptHandler(w http.ResponseWriter, r *http.Request) {
