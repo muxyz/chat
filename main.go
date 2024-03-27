@@ -160,7 +160,8 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
       <a href="#general" class="head">General</a>
       <a href="#crypto" class="head">Crypto</a>
       <a href="#islam" class="head">Islam</a>
-      <a href="#news" class="head">News</a>`, `
+      <a href="#news" class="head">News</a>
+      <a href="#test" class="head">Test</a>`, `
     <style>
       #input {
 	width: 100%;
@@ -180,7 +181,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
        }
        .message {
          padding: 10px 10px;
-	 border-top: 1px solid #cccccc;
        }
        #text {
 	 height: calc(100% - 140px);
@@ -192,10 +192,11 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
        }
        .mu {
          background: #F8F8F8;
+	 border: 1px solid #cccccc;
+	 border-radius: 10px;
        }
        @media only screen and (max-width: 600px) {
          #text { padding: 40px 0 20px 0; }
-	 .message { padding: 10px 0; }
        }
     </style>
 
@@ -243,7 +244,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
         var prompt = form.elements["prompt"].value;
 	var channel = form.elements["channel"].value;
 	form.elements["prompt"].value = '';
-	text.innerHTML += "<div class=message>" + prompt.parseURL() + "</div>";
+	text.innerHTML += "<div class='message mu'>" + prompt.parseURL() + "</div>";
 	text.scrollTo(0, text.scrollHeight);
 	var data = {"uuid": uuid, "prompt": prompt, "markdown": true, channel: channel};
 
